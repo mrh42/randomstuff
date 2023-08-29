@@ -1,0 +1,6 @@
+# init
+geth init g.json
+# run
+geth --networkid 82913 --unlock 0x9F12b0E66c3E44C30e70530217B7682F5C67BA51 --mine --miner.etherbase=0x9F12b0E66c3E44C30e70530217B7682F5C67BA51 --netrestrict 172.30.0.0/16
+# attach
+geth attach geth.ipc
