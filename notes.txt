@@ -6,6 +6,8 @@ geth --networkid 82913 --unlock 0x9F12b0E66c3E44C30e70530217B7682F5C67BA51 --min
 
 # attach
 geth attach geth.ipc
+
+eth.getBalance('0x9f12b0e66c3e44c30e70530217b7682f5c67ba51');
 loadScript('commands');
 #
 # see last transaction
@@ -26,3 +28,7 @@ i.get.call(0);
 i.len.call();
 i.lookup.call("foo");
 i.get.call(i.len.call()-1);
+
+
+# go stuff
+abigen --abi abi --pkg foo --out t.go
