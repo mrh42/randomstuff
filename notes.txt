@@ -6,7 +6,7 @@ geth --networkid 82913 --unlock 0x9F12b0E66c3E44C30e70530217B7682F5C67BA51 --min
 
 # attach
 geth attach geth.ipc
-
+loadScript('commands');
 #
 # see last transaction
 eth.getTransaction(eth.getBlock(eth.blockNumber).transactions[0])
@@ -15,9 +15,14 @@ eth.getTransaction(eth.getBlock(eth.blockNumber).transactions[0])
 var c = eth.contract(abi);
 # create instance using destination of last transaction
 # the instance object has actual functions, created from the abi.
+# "0x959e54c6f1232aa1ef4e6b18975d2e91e96aa92e"
 var i = c.at(eth.getTransaction(eth.getBlock(eth.blockNumber).transactions[0]).to);
 
 # call functions
+# add a CID to the list
+i.set.sendTransaction("home", "bafkreig5o4tza7wt6pwyalbxuwukvzrzodda5muz5gulhizmx24ksasslm", { from: eth.accounts[0], gas: 1000000 });
+i.add.sendTransaction("QmaCGKXmmSEcn6Lgv1CnFSGFHUHDKYGbENAN7ULP12HtCp", { from: eth.accounts[0], gas: 1000000 });
 i.get.call(0);
 i.len.call();
 i.lookup.call("foo");
+i.get.call(i.len.call()-1);
