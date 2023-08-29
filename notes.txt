@@ -4,3 +4,14 @@ geth init g.json
 geth --networkid 82913 --unlock 0x9F12b0E66c3E44C30e70530217B7682F5C67BA51 --mine --miner.etherbase=0x9F12b0E66c3E44C30e70530217B7682F5C67BA51 --netrestrict 172.30.0.0/16
 # attach
 geth attach geth.ipc
+#
+# see last transaction
+eth.getTransaction(eth.getBlock(eth.blockNumber).transactions[0])
+# create contract object using json abi
+var c = eth.contract(abi);
+# create instance using destination of last transaction
+var i = c.at(eth.getTransaction(eth.getBlock(eth.blockNumber).transactions[0]).to);
+# call functions
+i.get.call(0);
+i.len.call();
+i.lookup.call("foo");
