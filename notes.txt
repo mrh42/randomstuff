@@ -8,6 +8,12 @@ geth --networkid 82913 --unlock 0x9F12b0E66c3E44C30e70530217B7682F5C67BA51 --min
 geth attach geth.ipc
 
 eth.getBalance('0x9f12b0e66c3e44c30e70530217b7682f5c67ba51');
+
+# create a transaction with some data attached
+eth.sendTransaction({ to: eth.accounts[0], from: eth.accounts[0], value: 1000000, input: "0x11223344551111111111111111111111111111111111111111111111111111111111111111111111111111111111" });
+
+
+
 loadScript('commands');
 #
 # see last transaction
