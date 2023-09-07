@@ -12,7 +12,7 @@ import (
 	//"github.com/ethereum/go-ethereum"
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/crypto"
-	//"github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common"
 )
 
 
@@ -45,28 +45,39 @@ func main() {
 			}
 		}
 	}
+
+	//
+	// lets send a transaction with an IPFS CID as a payload.
+	//
+	var cid []byte = []byte(os.Args[1])
+	//
+	// we send here for testing purposes, others would know to look at this for finding CIDs
+	//
+	toAddress := common.HexToAddress("0x9F12b0E66c3E44C30e70530217B7682F5C67BA51")
+
+
 	chainID, _ := e.NetworkID(context.Background())
 
+	// fetch our private key from an env variable
 	privateKey, err := crypto.HexToECDSA(os.Getenv("PRIVATEKEY"))
 	if err != nil {
 		log.Fatal(err)
 	}
+	
 	publicKey := privateKey.Public()
 	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
 	if !ok {
 		log.Fatal("error casting public key to ECDSA")
 	}
+
 	fromAddress := crypto.PubkeyToAddress(*publicKeyECDSA)
-	//toAddress := common.HexToAddress("0x9F12b0E66c3E44C30e70530217B7682F5C67BA51")
-	toAddress := fromAddress
 	
 	value := big.NewInt(0)
 	gasLimit := uint64(31000)
 	gasPrice, err := e.SuggestGasPrice(context.Background())
 	nonce, err := e.PendingNonceAt(context.Background(), fromAddress)
 
-	var data []byte = []byte("QmaCGKXmmSEcn6Lgv1CnFSGFHUHDKYGbENAN7ULP12HtCp")
-	tx := types.NewTransaction(nonce, toAddress, value, gasLimit, gasPrice, data)
+	tx := types.NewTransaction(nonce, toAddress, value, gasLimit, gasPrice, cid)
 
 	signedTx, err := types.SignTx(tx, types.NewEIP155Signer(chainID), privateKey)
 	if err != nil {
@@ -74,5 +85,9 @@ func main() {
 	}
 
 	err = e.SendTransaction(context.Background(), signedTx)
-	fmt.Printf("send: %s %v\n", err, signedTx)
+	if err != nil {
+		fmt.Printf("error sending: %s %v\n", err, signedTx)
+	} else {
+		fmt.Printf("sent: %v\n", signedTx)
+	}
 }
