@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 	"context"
+	//"strings"
 	"math/big"
 	"crypto/ecdsa"
 	"github.com/ethereum/go-ethereum/core/types"
@@ -13,9 +14,26 @@ import (
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/common"
+
+        "crypto/sha256"
+        "crypto/hmac"
+        "encoding/hex"
 )
 
+func id(data []byte) (id string) {
 
+        h := hmac.New(sha256.New, data)
+        h.Write([]byte("ID"))        
+        id = hex.EncodeToString(h.Sum(nil)[:16])
+        return
+}
+
+//
+// XXX: need to update to use the To address for some of our data.  Should be a 32-bit and a 128-bit hash of the key needed to decrypt
+// the data found in IPFS.
+// The second kind of transaction will be a cryptomac formula, the To address will be a 32-bit key, and a 128-bit key hash.  The payload will
+// be a list of 128-bit key hashes representing the keys needed to construct the composite key.
+// 
 func main() {
 	
 	e, err := ethclient.Dial("/home/m/.ethereum/geth.ipc")
@@ -39,7 +57,7 @@ func main() {
 			trs := block.Transactions()
 			for i, t := range trs {
 				// check if it was sent to the address we are interested in.
-				if t.To() != nil && t.To().Hex() == "0x9F12b0E66c3E44C30e70530217B7682F5C67BA51" {
+				if t.To() != nil { //&& strings.HasPrefix(t.To().Hex(), "0x9F12B0E6") {
 					fmt.Printf("transaction %d -- to: %s data: %s\n", i, t.To().Hex(), t.Data())
 				}
 			}
@@ -53,7 +71,8 @@ func main() {
 	//
 	// we send here for testing purposes, others would know to look at this for finding CIDs
 	//
-	toAddress := common.HexToAddress("0x9F12b0E66c3E44C30e70530217B7682F5C67BA51")
+	keyHash := id(cid) // for testing
+	toAddress := common.HexToAddress("0x00000001" + keyHash)
 
 
 	chainID, _ := e.NetworkID(context.Background())
