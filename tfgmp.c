@@ -64,12 +64,18 @@ int tf(uint64_t p, uint64_t k, mp_limb_t Q[2]) {
 	//
 	uint64_t one = 1l;
 	mp_limb_t Sq[4] = {1, 0, 0, 0};
+	mp_limb_t Sq2[4] = {1, 0, 0, 0};
 	for (int b = top; b >= 0; b--) {
 		// Sq *= Sq
-		mpn_mul_n(Sq, Sq, Sq, qn2);
+		mpn_mul_n(Sq2, Sq, Sq, qn2);
 		if (p & (one << b)) {
 			// Sq *= 2
-			mpn_lshift(Sq, Sq, qn2, 1);
+			mpn_lshift(Sq, Sq2, qn2, 1);
+		} else {
+			Sq[0] = Sq2[0];
+			Sq[1] = Sq2[1];
+			Sq[2] = Sq2[2];
+			Sq[3] = Sq2[3];
 		}
 		// Sq %= Q
 		mp_limb_t X[4], R[4];
@@ -128,11 +134,15 @@ int main(int ac, char **av) {
 		p = atol(av[1]);
 		kbase = atol(av[2]);
 	}
+	mp_limb_t Q[2];
+	//if (tf(p, kbase, Q)) {
+	//	printf("%ld kfactor %ld\n", p, kbase);
+	//}
+	//return 0;
 
 	// Start with kbase == 0 mod M.
 	kbase = (kbase/M) * M;
 	initlist(p);
-	mp_limb_t Q[2];
 	while (1) {
 		printf("kbase: %ld\n", kbase);
 
