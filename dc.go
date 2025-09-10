@@ -80,7 +80,7 @@ func isconnected(i uint) (c bool) {
 	return
 }
 
-// spin around z 3 times, see if we find a duplicate
+// rotate around the Z axis 3 times, see if we find a duplicate
 func spinz3(dup bool, i uint, cubes map[uint]bool) (seen bool) {
 	seen = dup
 	if seen {return}
@@ -102,7 +102,7 @@ func main() {
 
 	for i := uint(0); i < 1 << 12; i++ {
 		// cube must have height, width and depth
-		nv := bits.OnesCount(i & VertMask) 		// number of vertical edges
+		height := bits.OnesCount(i & VertMask) 		// number of vertical edges
 		width := bits.OnesCount(i & WidthMask)
 		depth := bits.OnesCount(i & DepthMask)
 
@@ -111,11 +111,11 @@ func main() {
 		ne := bits.OnesCount(i)
 
 		// must be connected and 3d, more than 2, but not 12 edges
-		if ne > 2 && ne < 12 && connected && nv > 0 && depth > 0 && width > 0 {
+		if ne > 2 && ne < 12 && connected && height > 0 && depth > 0 && width > 0 {
 
 			//
-			// use spinx() the cube around so each of the 6 faces is facing up.
-			// for each of these call spinz3() to see if we have made a duplicate.
+			// use spinx()/spinz() to rotate the cube around soeach of the 6 faces is facing up.
+			// for each of these, call spinz3() to see if we have made a duplicate.
 			//
 
 			dup := spinz3(false, i, cubes)
