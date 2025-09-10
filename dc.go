@@ -87,12 +87,16 @@ func spinz3(dup bool, i uint, cubes map[uint]bool) (seen bool) {
 	seen = dup
 	if seen {return}
 
-	for s := 0; s < 4; s++ {
+	if cubes[i] {
+		seen = true
+		return
+	}
+	for s := 0; s < 3; s++ {
+		i = spinz(i)
 		if cubes[i] {
 			seen = true
 			return
 		}
-		i = spinz(i)
 	}
 	return
 }
