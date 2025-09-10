@@ -76,6 +76,8 @@ func isconnected(i uint) (c bool) {
 	}
 
 	i = isc(start, i)
+
+	// no more edges?  then we visited all of them, we are connected
 	if i == 0 {c = true}
 	return
 }
@@ -85,13 +87,12 @@ func spinz3(dup bool, i uint, cubes map[uint]bool) (seen bool) {
 	seen = dup
 	if seen {return}
 
-	if cubes[i] {seen = true }
-	for s := 0; s < 3; s++ {
-		i = spinz(i)
+	for s := 0; s < 4; s++ {
 		if cubes[i] {
 			seen = true
 			return
 		}
+		i = spinz(i)
 	}
 	return
 }
@@ -100,11 +101,11 @@ func main() {
 
 	cubes := make(map[uint]bool)
 
-	for i := uint(0); i < 1 << 12; i++ {
+	for i := uint(0); i < b(12); i++ {
 		// cube must have height, width and depth
 		height := bits.OnesCount(i & VertMask) 		// number of vertical edges
-		width := bits.OnesCount(i & WidthMask)
-		depth := bits.OnesCount(i & DepthMask)
+		width :=  bits.OnesCount(i & WidthMask)
+		depth :=  bits.OnesCount(i & DepthMask)
 
 		connected := isconnected(i)
 		// total non-missing edges
@@ -114,7 +115,7 @@ func main() {
 		if ne > 2 && ne < 12 && connected && height > 0 && depth > 0 && width > 0 {
 
 			//
-			// use spinx()/spinz() to rotate the cube around soeach of the 6 faces is facing up.
+			// use spinx()/spinz() to rotate the cube around so each of the 6 faces is facing up.
 			// for each of these, call spinz3() to see if we have made a duplicate.
 			//
 
