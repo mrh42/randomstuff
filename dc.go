@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"math/bits"
 )
 
 // floor is edges 0, 1, 2, 3
@@ -15,6 +14,7 @@ const WidthMask = 1 << 0 | 1 << 2 | 1 << 8 | 1 << 10
 const DepthMask = 1 << 1 | 1 << 3 | 1 << 9 | 1 << 11
 
 var Neighbors = [][]int {
+	// floor
 	{1, 3, 4, 5},  // 0
 	{0, 2, 5, 6},  // 1
 	{1, 3, 6, 7},  // 2
@@ -33,20 +33,21 @@ var Neighbors = [][]int {
 	{4, 7, 8, 10},  // 11
 }
 
-var xperm = []uint8{4, 3, 7, 11, 8, 0, 2, 10, 5, 1, 6, 9}
-
 // rotate 90 degrees around X axis
-func spinx(i uint) (j uint) {
+func spinx(i uint) (uint) {
 
-	for s, d := range xperm {
-		j |= ((i >> uint(s)) & 1) << d
-	}
-	return j
+	return  (i & 0x11) << 4  | (i & 2) << 2     | (i & 4) << 5    | (i & 8) << 8 |
+		(i & 0x20) >> 5  | (i & 0x440) >> 4 | (i & 0x80) << 3 | (i & 0x100) >> 3 |
+		(i & 0x200) >> 8 | (i & 0x800) >> 2
 }
 
 // rotate 90 degrees around vertical(z) axis
 func spinz(i uint) (uint) {
 	return (i & 0x777) << 1 | (i & 0x888) >> 3
+}
+// rotate -90 degrees around vertical(z) axis
+func spinzc(i uint) (uint) {
+	return (i & 0xeee) >> 1 | (i & 0x111) << 3
 }
 
 func b(n int) uint {
@@ -67,8 +68,8 @@ func isc(s int, i uint) uint {
 	return i
 }
 
-func isconnected(i uint) (c bool) {
-	if i == 0 {return}
+func isconnected(i uint) (bool) {
+	if i == 0 {return false}
 
 	start := 0
 	for (i & b(start)) == 0 {
@@ -78,12 +79,11 @@ func isconnected(i uint) (c bool) {
 	i = isc(start, i)
 
 	// no more edges?  then we visited all of them, we are connected
-	if i == 0 {c = true}
-	return
+	return i == 0
 }
 
 // rotate around the Z axis 3 times, see if we find a duplicate
-func spinz3(dup bool, i uint, cubes map[uint]bool) (seen bool) {
+func spinz3(dup bool, i uint, cubes []bool) (seen bool) {
 	seen = dup
 	if seen {return}
 
@@ -103,24 +103,23 @@ func spinz3(dup bool, i uint, cubes map[uint]bool) (seen bool) {
 
 func main() {
 
-	cubes := make(map[uint]bool)
+	cubes := make([]bool, b(12))
+	count := 0
 
-	for i := uint(0); i < b(12); i++ {
+	for i := uint(3); i < b(12)-1; i++ {
 		// cube must have height, width and depth
-		height := bits.OnesCount(i & VertMask) 		// number of vertical edges
-		width :=  bits.OnesCount(i & WidthMask)
-		depth :=  bits.OnesCount(i & DepthMask)
+		height := i & VertMask
+		width  := i & WidthMask
+		depth  := i & DepthMask
 
 		connected := isconnected(i)
-		// total non-missing edges
-		ne := bits.OnesCount(i)
 
-		// must be connected and 3d, more than 2, but not 12 edges
-		if ne > 2 && ne < 12 && connected && height > 0 && depth > 0 && width > 0 {
+		// must be connected and 3d, not 12 edges
+		if connected && height > 0 && depth > 0 && width > 0 {
 
 			//
 			// use spinx()/spinz() to rotate the cube around so each of the 6 faces is facing up.
-			// for each of these, call spinz3() to see if we have made a duplicate.
+			// for each of these, call spinz3() to test 4 orientations.
 			//
 
 			dup := spinz3(false, i, cubes)
@@ -138,18 +137,19 @@ func main() {
 			j = spinx(j)
 			dup = spinz3(dup, j, cubes)
 
-			j = spinz(i)
-			j = spinz(j)
-			j = spinz(j)
+			j = spinzc(i)
 			j = spinx(j)
 			dup = spinz3(dup, j, cubes)
 
 			if !dup {
 				// a new cube we've not seen before
 				cubes[i] = true
+				count += 1
+
+				//fmt.Printf("%b\n", i)
 			}
 		}
 		
 	}
-	fmt.Printf("total unique incomplete open cubes: %d\n", len(cubes))
+	fmt.Printf("total unique incomplete open cubes: %d\n", count)
 }
