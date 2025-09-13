@@ -17,7 +17,7 @@ func NewCubes() (cubes *Cubes) {
 //
 // an incomplete cube is represented by 12 bits, one for each possible edge.
 // 0x000 is no edges, 0xfff is all edges.
-// the floor is edges 0,1,2,3.  vertical edges 4,5,6,7.  roof is 8,9,10,11.
+// the floor edges are 0,1,2,3.  vertical edges are 4,5,6,7.  roof edges are 8,9,10,11.
 //
 
 const FloorMask = 1 << 0 | 1 << 1 | 1 << 2  | 1 << 3
@@ -27,61 +27,44 @@ const WidthMask = 1 << 0 | 1 << 2 | 1 << 8  | 1 << 10
 const DepthMask = 1 << 1 | 1 << 3 | 1 << 9  | 1 << 11
 
 //
-// a 3D cube has a segment in all three dimensions.
+// a 3D cube has an active segment in all three dimensions.
 //
 func is3d(i uint16) bool {
 	return (i & VertMask) !=  0 && (i & WidthMask) != 0 && (i & DepthMask) != 0
 }
 
-var Neighbors = [][]int {
-	// floor
-	{1, 3, 4, 5},  // 0
-	{0, 2, 5, 6},  // 1
-	{1, 3, 6, 7},  // 2
-	{0, 2, 4, 7},  // 3
-
-	// vertical
-	{0, 3, 8, 11},  // 4
-	{0, 1, 8, 9},   // 5
-	{1, 2, 9, 10},  // 6
-	{2, 3, 10, 11}, // 7
-
-	// roof
-	{4, 5, 9, 11},  // 8
-	{5, 6, 8, 10},  // 9
-	{6, 7, 9, 11},  // 10
-	{4, 7, 8, 10},  // 11
-}
-
 // rotate the cube 90 degrees around X axis
 func spinx(i uint16) (uint16) {
-
 	return  (i & 0x11) << 4  | (i & 2) << 2     | (i & 4) << 5    | (i & 8) << 8 |
 		(i & 0x20) >> 5  | (i & 0x440) >> 4 | (i & 0x80) << 3 | (i & 0x100) >> 3 |
 		(i & 0x200) >> 8 | (i & 0x800) >> 2
 }
 
 // rotate the cube 90 degrees around vertical(z) axis
-func spinz(i uint16) (uint16) {
-	return (i & 0x777) << 1 | (i & 0x888) >> 3
-}
-
-// rotate the cube -90 degrees around vertical(z) axis
-func spinzc(i uint16) (uint16) {
-	return (i & 0xeee) >> 1 | (i & 0x111) << 3
+func spinz(i uint16, cc bool) (uint16) {
+	if cc {
+		return (i & 0xeee) >> 1 | (i & 0x111) << 3
+	}
+	return         (i & 0x777) << 1 | (i & 0x888) >> 3
 }
 
 func b(n int) uint16 {
 	return 1 << n
 }
 
+
+// neighbors for each edge
+var nmask = [...]uint16{0x03a, 0x065, 0x0ca, 0x095, 0x909, 0x303, 0x606, 0xc0c, 0xa30, 0x560, 0xac0,  0x590}
+
 // visit neighbors recursively
 func isc(s int, i uint16) uint16 {
+
 	// clear current edge
 	i &= ^b(s)
 
-	for _, x := range Neighbors[s] {
-		if (i & b(x)) != 0 {
+	mask := nmask[s]
+	for x := 0; i != 0 && x < 12; x++ {
+		if (b(x) & i & mask) != 0 {
 			i = isc(x, i)
 		}
 	}
@@ -91,19 +74,12 @@ func isc(s int, i uint16) uint16 {
 func isconnected(i uint16) (bool) {
 	if i == 0 {return false}
 
-	start := 0
-	for (i & b(start)) == 0 {
-		start++
+	s := 0
+	for (i & b(s)) == 0 {
+		s++
 	}
-
-	i = isc(start, i)
-
-	// if more edges, then we visited all of them, we are connected
-	return i == 0
-}
-
-func (cubes *Cubes) add(i uint16) {
-	cubes.uniq[i] = true
+	// if no more edges, then we visited all of them, we are connected
+	return isc(s, i) == 0
 }
 
 // rotate around the Z axis 3 times, mark all forms as seen
@@ -111,7 +87,7 @@ func (cubes *Cubes) spinz3(i uint16) {
 
 	cubes.seen[i] = true
 	for s := 0; s < 3; s++ {
-		i = spinz(i)
+		i = spinz(i, false)
 		cubes.seen[i] = true
 	}
 	return
@@ -122,37 +98,40 @@ func (cubes *Cubes) spinz3(i uint16) {
 // for each of these, call spinz3() to mark 4 orientations as seen.
 //
 func (cubes *Cubes) spinmark(i uint16) {
+	// top
 	cubes.spinz3(i)
 
+	// left
 	j := spinx(i)
 	cubes.spinz3(j)
 
+	// bottom
 	j = spinx(j)
 	cubes.spinz3(j)
 
+	// right
 	j = spinx(j)
 	cubes.spinz3(j)
 
-	j = spinz(i)
+	// back
+	j = spinz(i, false)
 	j = spinx(j)
 	cubes.spinz3(j)
 
-	j = spinzc(i)
+	// front
+	j = spinz(i, true)
 	j = spinx(j)
 	cubes.spinz3(j)
 }
 
-func main() {
-
-	cubes := NewCubes()
-
+func (cubes *Cubes) calculate() int {
 	// consider each of the 4095 incomplete cubes
 	for i := uint16(0); i < b(12)-1; i++ {
 		if !cubes.seen[i] {
 			// cube must have height, width and depth and must be connected
 			if is3d(i) && isconnected(i) {
 				// this is a valid cube we've not seen before
-				cubes.add(i)
+				cubes.uniq[i] = true
 				//fmt.Printf("%b\n", i)
 			}
 			// mark all versions of this cube as seen
@@ -160,5 +139,13 @@ func main() {
 
 		}
 	}
-	fmt.Printf("total unique incomplete open cubes: %d\n", len(cubes.uniq))
+	return len(cubes.uniq)
+}
+
+
+func main() {
+
+	n := NewCubes().calculate()
+
+	fmt.Printf("total unique incomplete open cubes: %d\n", n)
 }
