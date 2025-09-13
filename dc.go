@@ -4,14 +4,34 @@ import (
 	"fmt"
 )
 
-// floor is edges 0, 1, 2, 3
-//const FloorMask = 1 << 0 | 1 << 1 | 1 << 2 | 1 << 3
-// vertical edges 4, 5, 6, 7
-const VertMask = 1 << 4 | 1 << 5 | 1 << 6 | 1 << 7
-// width
-const WidthMask = 1 << 0 | 1 << 2 | 1 << 8 | 1 << 10
-// depth
-const DepthMask = 1 << 1 | 1 << 3 | 1 << 9 | 1 << 11
+type Cubes struct {
+	seen   []bool
+	uniq   map[uint16]bool
+}
+
+func NewCubes() (cubes *Cubes) {
+	cubes = &Cubes{seen: make([]bool, b(12)), uniq:make(map[uint16]bool)}
+	return
+}
+
+//
+// an incomplete cube is represented by 12 bits, one for each possible edge.
+// 0x000 is no edges, 0xfff is all edges.
+// the floor is edges 0,1,2,3.  vertical edges 4,5,6,7.  roof is 8,9,10,11.
+//
+
+const FloorMask = 1 << 0 | 1 << 1 | 1 << 2  | 1 << 3
+const VertMask  = 1 << 4 | 1 << 5 | 1 << 6  | 1 << 7
+const RoofMask  = 1 << 8 | 1 << 9 | 1 << 10 | 1 << 11
+const WidthMask = 1 << 0 | 1 << 2 | 1 << 8  | 1 << 10
+const DepthMask = 1 << 1 | 1 << 3 | 1 << 9  | 1 << 11
+
+//
+// a 3D cube has a segment in all three dimensions.
+//
+func is3d(i uint16) bool {
+	return (i & VertMask) !=  0 && (i & WidthMask) != 0 && (i & DepthMask) != 0
+}
 
 var Neighbors = [][]int {
 	// floor
@@ -33,30 +53,30 @@ var Neighbors = [][]int {
 	{4, 7, 8, 10},  // 11
 }
 
-// rotate 90 degrees around X axis
-func spinx(i uint) (uint) {
+// rotate the cube 90 degrees around X axis
+func spinx(i uint16) (uint16) {
 
 	return  (i & 0x11) << 4  | (i & 2) << 2     | (i & 4) << 5    | (i & 8) << 8 |
 		(i & 0x20) >> 5  | (i & 0x440) >> 4 | (i & 0x80) << 3 | (i & 0x100) >> 3 |
 		(i & 0x200) >> 8 | (i & 0x800) >> 2
 }
 
-// rotate 90 degrees around vertical(z) axis
-func spinz(i uint) (uint) {
+// rotate the cube 90 degrees around vertical(z) axis
+func spinz(i uint16) (uint16) {
 	return (i & 0x777) << 1 | (i & 0x888) >> 3
 }
-// rotate -90 degrees around vertical(z) axis
-func spinzc(i uint) (uint) {
+
+// rotate the cube -90 degrees around vertical(z) axis
+func spinzc(i uint16) (uint16) {
 	return (i & 0xeee) >> 1 | (i & 0x111) << 3
 }
 
-func b(n int) uint {
+func b(n int) uint16 {
 	return 1 << n
 }
 
-
 // visit neighbors recursively
-func isc(s int, i uint) uint {
+func isc(s int, i uint16) uint16 {
 	// clear current edge
 	i &= ^b(s)
 
@@ -68,7 +88,7 @@ func isc(s int, i uint) uint {
 	return i
 }
 
-func isconnected(i uint) (bool) {
+func isconnected(i uint16) (bool) {
 	if i == 0 {return false}
 
 	start := 0
@@ -78,78 +98,67 @@ func isconnected(i uint) (bool) {
 
 	i = isc(start, i)
 
-	// no more edges?  then we visited all of them, we are connected
+	// if more edges, then we visited all of them, we are connected
 	return i == 0
 }
 
-// rotate around the Z axis 3 times, see if we find a duplicate
-func spinz3(dup bool, i uint, cubes []bool) (seen bool) {
-	seen = dup
-	if seen {return}
+func (cubes *Cubes) add(i uint16) {
+	cubes.uniq[i] = true
+}
 
-	if cubes[i] {
-		seen = true
-		return
-	}
+// rotate around the Z axis 3 times, mark all forms as seen
+func (cubes *Cubes) spinz3(i uint16) {
+
+	cubes.seen[i] = true
 	for s := 0; s < 3; s++ {
 		i = spinz(i)
-		if cubes[i] {
-			seen = true
-			return
-		}
+		cubes.seen[i] = true
 	}
 	return
 }
 
+//
+// use spinx()/spinz() to rotate the cube around so each of the 6 faces is facing up.
+// for each of these, call spinz3() to mark 4 orientations as seen.
+//
+func (cubes *Cubes) spinmark(i uint16) {
+	cubes.spinz3(i)
+
+	j := spinx(i)
+	cubes.spinz3(j)
+
+	j = spinx(j)
+	cubes.spinz3(j)
+
+	j = spinx(j)
+	cubes.spinz3(j)
+
+	j = spinz(i)
+	j = spinx(j)
+	cubes.spinz3(j)
+
+	j = spinzc(i)
+	j = spinx(j)
+	cubes.spinz3(j)
+}
+
 func main() {
 
-	cubes := make([]bool, b(12))
-	count := 0
+	cubes := NewCubes()
 
-	for i := uint(3); i < b(12)-1; i++ {
-		// cube must have height, width and depth
-		height := i & VertMask
-		width  := i & WidthMask
-		depth  := i & DepthMask
-
-		connected := isconnected(i)
-
-		// must be connected and 3d, not 12 edges
-		if connected && height > 0 && depth > 0 && width > 0 {
-
-			//
-			// use spinx()/spinz() to rotate the cube around so each of the 6 faces is facing up.
-			// for each of these, call spinz3() to test 4 orientations.
-			//
-
-			dup := spinz3(false, i, cubes)
-
-			j := spinx(i)
-			dup = spinz3(dup, j, cubes)
-
-			j = spinx(j)
-			dup = spinz3(dup, j, cubes)
-
-			j = spinx(j)
-			dup = spinz3(dup, j, cubes)
-
-			j = spinz(i)
-			j = spinx(j)
-			dup = spinz3(dup, j, cubes)
-
-			j = spinzc(i)
-			j = spinx(j)
-			dup = spinz3(dup, j, cubes)
-
-			if !dup {
-				// a new cube we've not seen before
-				cubes[i] = true
-				count += 1
-
+	// consider each of the 4095 incomplete cubes
+	for i := uint16(0); i < b(12)-1; i++ {
+		if !cubes.seen[i] {
+			// cube must have height, width and depth and must be connected
+			if is3d(i) && isconnected(i) {
+				// this is a valid cube we've not seen before
+				cubes.add(i)
 				//fmt.Printf("%b\n", i)
 			}
+			// mark all versions of this cube as seen
+			cubes.spinmark(i)
+
 		}
-		
 	}
-	fmt.Printf("total unique incomplete open cubes: %d\n", count)
+	fmt.Printf("total unique incomplete open cubes: %d\n", len(cubes.uniq))
 }
