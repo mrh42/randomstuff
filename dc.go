@@ -34,24 +34,34 @@ func is3d(i uint16) bool {
 }
 
 // rotate the cube 90 degrees around X axis
-func spinx(i uint16) (uint16) {
-	return  (i & 0x11) << 4  | (i & 2) << 2     | (i & 4) << 5    | (i & 8) << 8 |
-		(i & 0x20) >> 5  | (i & 0x440) >> 4 | (i & 0x80) << 3 | (i & 0x100) >> 3 |
-		(i & 0x200) >> 8 | (i & 0x800) >> 2
+func spinx(i uint16, cc bool) (uint16) {
+	switch cc {
+	case true:
+		// not used, but fun to write
+		return  (i & 0x01) << 5  | (i & 0x02) << 8  | (i & 0x44) << 4 | (i & 0x08) >> 2  |
+			(i & 0x110) >> 4 | (i & 0x20) << 3  | (i & 0x80) >> 5 | (i & 0x200) << 2 |
+			(i & 0x400) >> 3 | (i & 0x800) >> 8
+	default:
+		return  (i & 0x11) << 4  | (i & 0x02) << 2  | (i & 0x04) << 5 | (i & 0x08) << 8  |
+			(i & 0x20) >> 5  | (i & 0x440) >> 4 | (i & 0x80) << 3 | (i & 0x100) >> 3 |
+			(i & 0x200) >> 8 | (i & 0x800) >> 2
+	}
 }
+
 
 // rotate the cube 90 degrees around vertical(z) axis
 func spinz(i uint16, cc bool) (uint16) {
-	if cc {
+	switch cc {
+	case true:
 		return (i & 0xeee) >> 1 | (i & 0x111) << 3
+	default:
+		return (i & 0x777) << 1 | (i & 0x888) >> 3
 	}
-	return         (i & 0x777) << 1 | (i & 0x888) >> 3
 }
 
 func b(n int) uint16 {
 	return 1 << n
 }
-
 
 // neighbors for each edge
 var nmask = [...]uint16{0x03a, 0x065, 0x0ca, 0x095, 0x909, 0x303, 0x606, 0xc0c, 0xa30, 0x560, 0xac0,  0x590}
@@ -72,6 +82,7 @@ func isc(s int, i uint16) uint16 {
 }
 
 func isconnected(i uint16) (bool) {
+	// empty cube
 	if i == 0 {return false}
 
 	s := 0
@@ -90,7 +101,6 @@ func (cubes *Cubes) spinz3(i uint16) {
 		i = spinz(i, false)
 		cubes.seen[i] = true
 	}
-	return
 }
 
 //
@@ -101,26 +111,26 @@ func (cubes *Cubes) spinmark(i uint16) {
 	// top
 	cubes.spinz3(i)
 
-	// left
-	j := spinx(i)
+	// back
+	j := spinx(i, false)
 	cubes.spinz3(j)
 
 	// bottom
-	j = spinx(j)
-	cubes.spinz3(j)
-
-	// right
-	j = spinx(j)
-	cubes.spinz3(j)
-
-	// back
-	j = spinz(i, false)
-	j = spinx(j)
+	j = spinx(j, false)
 	cubes.spinz3(j)
 
 	// front
+	j = spinx(j, false)
+	cubes.spinz3(j)
+
+	// right
+	j = spinz(i, false)
+	j = spinx(j, false)
+	cubes.spinz3(j)
+
+	// left
 	j = spinz(i, true)
-	j = spinx(j)
+	j = spinx(j, false)
 	cubes.spinz3(j)
 }
 
@@ -132,7 +142,7 @@ func (cubes *Cubes) calculate() int {
 			if is3d(i) && isconnected(i) {
 				// this is a valid cube we've not seen before
 				cubes.uniq[i] = true
-				//fmt.Printf("%b\n", i)
+				//fmt.Printf("%012b\n", i)
 			}
 			// mark all versions of this cube as seen
 			cubes.spinmark(i)
