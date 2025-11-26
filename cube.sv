@@ -64,7 +64,9 @@ module spin_z_cc (input wire [11:0] i, output wire [11:0] o);
     };
 endmodule
 
-
+//
+// make 23 rotations of the input cube.  If the input is the lowest, this is the first version of this shape.
+//
 module is_canonical (
     input  wire [11:0] cube_in,
     output wire        is_canon
@@ -155,7 +157,7 @@ module cube_connectivity (
     output reg         busy
 );
 
-    // --- Neighbor Lookup Table (Derived from your Go 'nmask') ---
+    // --- Neighbor Lookup Table (Derived from go version 'nmask') ---
     // Maps an edge index (0-11) to a bitmask of its neighbors
     function [11:0] get_neighbors(input [3:0] edge_idx);
         case (edge_idx)
