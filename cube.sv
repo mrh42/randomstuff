@@ -16,8 +16,8 @@ module spin_x (input wire [11:0] i, output wire [11:0] o);
         i[8],  
         i[0],  
         
-        i[6],  
-        i[1], 
+        i[1],  
+        i[6], 
         i[9],  
         i[5]  
     };
