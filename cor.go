@@ -25,7 +25,6 @@ type ChatResponse struct {
 	} `json:"error,omitempty"`
 }
 
-// The Go struct you want to populate
 type CoronerData struct {
 	FirstName       string `json:"first_name"`
 	LastName        string `json:"last_name"`
@@ -62,6 +61,7 @@ func extractEntitiesWithVLLM(rawdata string) string {
 	// Build the payload
 	payload := map[string]interface{}{
 		"model": "google/gemma-4-26B-A4B-it",
+		//"model": "google/gemma-4-31B-it",
 		"messages": []map[string]string{
 			{"role": "system", "content": systemPrompt},
 			{"role": "user", "content": userPrompt},
@@ -104,7 +104,7 @@ func extractEntitiesWithVLLM(rawdata string) string {
 }
 
 
-// generateIntelligenceBrief takes the coroner facts and the news articles, and asks vLLM to synthesize a report.
+
 func generateBrief(coronerJSON string, newsContext string) string {
 	apikey := os.Getenv("HUGGING_FACE_HUB_TOKEN")
 	url := "https://router.huggingface.co/v1/chat/completions"
@@ -118,8 +118,8 @@ func generateBrief(coronerJSON string, newsContext string) string {
 
 	// 2. Build the Payload (Notice we DO NOT enforce JSON here)
 	payload := map[string]interface{}{
-		//"model": "google/gemma-4-31B-it",
-		"model": "google/gemma-4-26B-A4B-it",
+		"model": "google/gemma-4-31B-it",
+		//"model": "google/gemma-4-26B-A4B-it",
 		"messages": []map[string]string{
 			{"role": "system", "content": systemPrompt},
 			{"role": "user", "content": userPrompt},
@@ -157,6 +157,7 @@ func generateBrief(coronerJSON string, newsContext string) string {
 	}
 	return "Failed to generate brief."
 }
+
 
 
 func fetchPressReleaseLinks() []string {
@@ -203,12 +204,22 @@ func fetchPressReleaseLinks() []string {
 	return links
 }
 
-func getHtml(url string) string {
+func getArticleContent(url string) string {
 	fmt.Printf("fetching: %s\n", url)
 	resp, _ := http.Get(url)
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
-	return string(body)
+
+	data := string(body)
+	start := strings.Index(data, "<div class=\"article-content")
+	if start > 0 {
+		data = data[start:]
+		end := strings.Index(data, "<div class=\"article-footer")
+		if end > 0 {
+			data = data[:end]
+		}
+	}
+	return data
 }
 
 // XML Structures for Bing News RSS
@@ -280,12 +291,12 @@ func main() {
 	//links = []string{"https://www.riversidesheriff.org/m/newsflash/Home/Detail/7181"}
 
 	for _, l := range links {
-		//data := getData(l)
-		data := getHtml(l)
+		data := getArticleContent(l)
+		
+		fmt.Printf("len(data): %d\n", len(data))
 		jdata := extractEntitiesWithVLLM(data)
-		//fmt.Printf("extracted json: %s\n", jdata)
+		fmt.Printf("extracted json: %s\n", jdata)
 
-		// 2. Parse the JSON into our Go struct
 		var coroner CoronerData
 		if err := json.Unmarshal([]byte(jdata), &coroner); err != nil {
 			fmt.Println("Error parsing extracted JSON:", err)
@@ -295,10 +306,7 @@ func main() {
 		// 3. Search Bing News using the structured data
 		if coroner.LastName != "" && coroner.FirstName != "" {
 			newsContext := fetchBingNews(coroner.FirstName, coroner.LastName, coroner.CityOfResidence)
-			//newsContext += " " + fetchGoogleNews(coroner.FirstName, coroner.LastName, coroner.CityOfResidence)
-			//fmt.Println("\n--- NEWS RESULTS ---")
-			//fmt.Println(newsContext)
-			//fmt.Println("\n----------\n")
+
 			finalBrief := generateBrief(jdata, newsContext)
 			fmt.Println(finalBrief)
 			fmt.Println("\n----------\n")
