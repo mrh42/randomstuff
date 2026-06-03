@@ -12,6 +12,7 @@ import (
 	"io"
 	"os"
 	"github.com/anyascii/go"
+	//readability "codeberg.org/readeck/go-readability/v2"
 )
 
 // OpenAI API Response Structures
@@ -129,15 +130,16 @@ func generateBrief(coronerJSON string, newsContext string) string {
 	// 1. Formulate the Intelligence Analyst Prompt
 	systemPrompt := `You are an Analyst. Your job is to read the official Coroner's data and compare it against public news reports. 
 	Write a concise, professional brief summarizing the incident.
-        Add details from media to your report that are not present in the official coroner report. 
+        Add details or interesting facts from media to your report that are not present in the official coroner report.
+        The new feed might include aticles not related to our coroner victim, be mindful of that possibility.
 	Do not hallucinate. If the news reports do not mention the victim, state that there is no public media coverage of the incident.`
 
 	userPrompt := fmt.Sprintf("CORONER DATA:\n%s\n\nPUBLIC NEWS CONTEXT:\n%s", coronerJSON, newsContext)
 
 	// 2. Build the Payload (Notice we DO NOT enforce JSON here)
 	payload := map[string]interface{}{
-		//"model": "google/gemma-4-31B-it",
-		"model": "openai/gpt-oss-120b",
+		"model": "google/gemma-4-31B-it",
+		//"model": "openai/gpt-oss-120b",
 		//"model": "google/gemma-4-26B-A4B-it",
 		"messages": []map[string]string{
 			{"role": "system", "content": systemPrompt},
@@ -256,7 +258,7 @@ type Item struct {
 	Link        string `xml:"link"`
 }
 
-func fetchNews(url string) string {
+func fetchNews(feed, url string) string {
 	fmt.Fprintf(os.Stderr, "Searching News: %s\n", url)
 	
 	resp, err := http.Get(url)
@@ -271,16 +273,21 @@ func fetchNews(url string) string {
 	}
 
 	if len(rss.Channel.Items) == 0 {
-		return "No news articles found."
+		return feed + ": No news articles found."
 	}
+	fmt.Fprintf(os.Stderr, "items: %d\n", len(rss.Channel.Items))
 
-	// Compile the top 3 results into a single string for the LLM to read later
 	var newsSummary strings.Builder
+	newsSummary.WriteString(fmt.Sprintf("a total of %d news items were found\n"))
 	for i, item := range rss.Channel.Items {
-		if i >= 3 {
-			break // Only grab the top 3
+		if i >= 4 {
+			break
 		}
-		newsSummary.WriteString(fmt.Sprintf("Headline: %s\nSummary: %s\n", item.Title, item.Description))
+
+		//link := item.Link
+		//fmt.Fprintf(os.Stderr, "link: %s\n", link)
+		//article, err := readability.FromURL(link, 5*time.Second)
+		newsSummary.WriteString(fmt.Sprintf("title: %s\ndescription: %s\n", feed, item.Title, item.Description))
 	}
 
 	return strings.TrimSpace(newsSummary.String())
@@ -292,7 +299,7 @@ func fetchBingNews(firstName, lastName, city string) string {
 	query := fmt.Sprintf("%s %s %s", lastName, firstName, city)
 	encodedQuery := url.QueryEscape(query)
 	url := fmt.Sprintf("https://www.bing.com/news/search?format=RSS&q=%s", encodedQuery)
-	return fetchNews(url)
+	return fetchNews("bing", url)
 }
 
 func fetchGoogleNews(firstName, lastName, city string) string {
@@ -301,7 +308,7 @@ func fetchGoogleNews(firstName, lastName, city string) string {
 	query := fmt.Sprintf("%s %s %s", lastName, firstName, city)
 	encodedQuery := url.QueryEscape(query)
 	url := fmt.Sprintf("https://news.google.com/rss/search?q=%s", encodedQuery)
-	return fetchNews(url)
+	return fetchNews("google", url)
 }
 
 
@@ -324,8 +331,11 @@ func main() {
 
 		// 3. Search Bing News using the structured data
 		if coroner.LastName != "" && coroner.FirstName != "" {
-			newsContext := fetchBingNews(coroner.FirstName, coroner.LastName, coroner.CityOfResidence)
+			//newsContext := fetchBingNews(coroner.FirstName, coroner.LastName, coroner.CityOfResidence)
 
+			newsContext := fetchGoogleNews(coroner.FirstName, coroner.LastName, coroner.CityOfResidence)
+			//fmt.Fprintf(os.Stderr, "news: %s\n", newsContext)
+			
 			finalBrief := generateBrief(jdata, newsContext)
 			out := anyascii.Transliterate(finalBrief)
 
