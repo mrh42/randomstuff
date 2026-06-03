@@ -11,6 +11,7 @@ import (
 	"encoding/xml"
 	"io"
 	"os"
+	"github.com/anyascii/go"
 )
 
 // OpenAI API Response Structures
@@ -60,8 +61,9 @@ func extractEntitiesWithVLLM(rawdata string) string {
 
 	// Build the payload
 	payload := map[string]interface{}{
-		"model": "google/gemma-4-26B-A4B-it",
+		//"model": "google/gemma-4-26B-A4B-it",
 		//"model": "google/gemma-4-31B-it",
+		"model": "openai/gpt-oss-120b",
 		"messages": []map[string]string{
 			{"role": "system", "content": systemPrompt},
 			{"role": "user", "content": userPrompt},
@@ -92,18 +94,33 @@ func extractEntitiesWithVLLM(rawdata string) string {
 		fmt.Fprintf(os.Stderr, "Failed to parse JSON response: %v\nRaw: %s\n", err, string(body))
 		return ""
 	}
-		if chatResp.Error.Message != "" {
+	if chatResp.Error.Message != "" {
 		fmt.Fprintf(os.Stderr, "API Error: %s\n", chatResp.Error.Message)
 		os.Exit(1)
 	}
 
 	if len(chatResp.Choices) == 0 {
+		fmt.Fprintf(os.Stderr, "No choices, API Error: %s\n", chatResp.Error.Message)
 		return ""
 	}
 	return chatResp.Choices[0].Message.Content
 }
 
+func sanitizeOutput(text string) string {
+	replacer := strings.NewReplacer(
+		"\u2018", "'",   // Left single curly quote
+		"\u2019", "'",   // Right single curly quote (apostrophe)
+		"\u201C", "\"",  // Left double curly quote
+		"\u201D", "\"",  // Right double curly quote
+		"\u2013", "-",   // En-dash
+		"\u2014", "--",  // Em-dash
+		"\u2026", "...", // Ellipsis
+	)
+	
+	return replacer.Replace(text)
+}
 
+//        Write the reports  using basic HTML tags (<b>, <h2>, <ul>, <li>, <br>). Do not use Markdown.
 
 func generateBrief(coronerJSON string, newsContext string) string {
 	apikey := os.Getenv("HUGGING_FACE_HUB_TOKEN")
@@ -111,14 +128,16 @@ func generateBrief(coronerJSON string, newsContext string) string {
 
 	// 1. Formulate the Intelligence Analyst Prompt
 	systemPrompt := `You are an Analyst. Your job is to read the official Coroner's data and compare it against public news reports. 
-	Write a concise, professional brief summarizing the incident. Add details from media to your report that are not present in the official coroner report. 
+	Write a concise, professional brief summarizing the incident.
+        Add details from media to your report that are not present in the official coroner report. 
 	Do not hallucinate. If the news reports do not mention the victim, state that there is no public media coverage of the incident.`
 
 	userPrompt := fmt.Sprintf("CORONER DATA:\n%s\n\nPUBLIC NEWS CONTEXT:\n%s", coronerJSON, newsContext)
 
 	// 2. Build the Payload (Notice we DO NOT enforce JSON here)
 	payload := map[string]interface{}{
-		"model": "google/gemma-4-31B-it",
+		//"model": "google/gemma-4-31B-it",
+		"model": "openai/gpt-oss-120b",
 		//"model": "google/gemma-4-26B-A4B-it",
 		"messages": []map[string]string{
 			{"role": "system", "content": systemPrompt},
@@ -205,7 +224,7 @@ func fetchPressReleaseLinks() []string {
 }
 
 func getArticleContent(url string) string {
-	fmt.Printf("fetching: %s\n", url)
+	fmt.Fprintf(os.Stderr, "fetching: %s\n", url)
 	resp, _ := http.Get(url)
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
@@ -238,7 +257,7 @@ type Item struct {
 }
 
 func fetchNews(url string) string {
-	fmt.Printf("Searching News: %s\n", url)
+	fmt.Fprintf(os.Stderr, "Searching News: %s\n", url)
 	
 	resp, err := http.Get(url)
 	if err != nil {
@@ -293,14 +312,14 @@ func main() {
 	for _, l := range links {
 		data := getArticleContent(l)
 		
-		fmt.Printf("len(data): %d\n", len(data))
+		//fmt.Printf("(data): %s\n", data)
 		jdata := extractEntitiesWithVLLM(data)
-		fmt.Printf("extracted json: %s\n", jdata)
+		//fmt.Printf("extracted json: %s\n", jdata)
 
 		var coroner CoronerData
 		if err := json.Unmarshal([]byte(jdata), &coroner); err != nil {
 			fmt.Println("Error parsing extracted JSON:", err)
-			return
+			continue
 		}
 
 		// 3. Search Bing News using the structured data
@@ -308,7 +327,10 @@ func main() {
 			newsContext := fetchBingNews(coroner.FirstName, coroner.LastName, coroner.CityOfResidence)
 
 			finalBrief := generateBrief(jdata, newsContext)
-			fmt.Println(finalBrief)
+			out := anyascii.Transliterate(finalBrief)
+
+			//out := sanitizeOutput(finalBrief)
+			fmt.Println(out)
 			fmt.Println("\n----------\n")
 		} else {
 			fmt.Println("Could not extract a valid name to search.")
