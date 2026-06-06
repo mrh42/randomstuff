@@ -43,6 +43,7 @@ func NewData(filename string) (data *Data) {
 	for _, rec := range data.g.Individual {
 		data.individuals[rec.Xref] = rec
 	}
+	fmt.Printf("Tree contains %d individuals\n", len(data.individuals))
 	return 
 }
 func (d *Data) Name(id string) (n string) {
@@ -52,10 +53,18 @@ func (d *Data) Name(id string) (n string) {
 	n = i.Name[0].Name
 	return
 }
+func (d *Data) Sex(id string) (s string) {
+	i := d.individuals[id]
+	if i == nil { return }
+
+	s = i.Sex
+	return
+}
 
 type InfoS struct {
 	ID          string `json:"id"`
 	Name        string `json:"name"`
+	Sex         string `json:"sex"`
 	Birth       string `json:"birth"`
 	Birthplace  string `json:"birthplace"`
 	Death       string `json:"death"`
@@ -63,15 +72,18 @@ type InfoS struct {
 	Father      string `json:"father"`
 	Mother      string `json:"mother"`
 	Children    []string `json:"children"`
+	Spouses     []string `json:"spouses"`
 	
 }
 func (d *Data) Info(id string) (j string) {
 
 	info := &InfoS{ID:id}
 	info.Name = d.Name(id)
+	info.Sex = d.Sex(id)
 	info.Birth, info.Birthplace = d.Event(id, "BIRT")
 	info.Death, info.Deathplace = d.Event(id, "DEAT")
 	info.Children = d.Children(id)
+	info.Spouses = d.Spouses(id)
 	info.Mother = d.Mother(id)
 	info.Father = d.Father(id)
 	jd, _ := json.Marshal(info)
@@ -89,6 +101,25 @@ func (d *Data) Event(id, tag string) (date, place string) {
 			date = e.Date
 			place = e.Place.Name
 			return
+		}
+	}
+	return
+}
+
+func (d *Data) Spouses(id string) (sids []string) {
+	sids = make([]string, 0, 10)
+
+	i := d.individuals[id]
+	if i == nil { return }
+	fs := i.Family
+
+	for _, fl := range fs {
+		f := fl.Family
+		if f.Wife.Xref != id {
+			sids = append(sids, f.Wife.Xref)
+		}
+		if f.Husband.Xref != id {
+			sids = append(sids, f.Husband.Xref)
 		}
 	}
 	return
