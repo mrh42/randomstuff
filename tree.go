@@ -142,9 +142,10 @@ func llm(userPrompt string) string {
 	url := "https://router.huggingface.co/v1/chat/completions"
 
 	// Construct the prompt
-	systemPrompt := `you have complete access to my family tree. We reference indivuals my a unique string ID.
-You can ask for info on idividuals by telling me the IDs and I'll provide the info in the next prompt.
-We will do this over and over until you have the data you need. When giving me these IDs, state "NEEDED", then provide as a list, each on its own line with no adornment.
+	systemPrompt := `you have complete access to my family tree. We reference individuals by a unique string ID.
+You can ask for info on individuals by telling me the IDs and I'll provide the info in the next prompt.
+We will do this over and over until you have the data you need.
+When giving me these IDs, state "NEEDED", then provide as a list, each on its own line with no adornment.
 `
 
 	// Build the payload
