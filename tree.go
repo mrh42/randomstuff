@@ -144,7 +144,7 @@ func llm(userPrompt string) string {
 	// Construct the prompt
 	systemPrompt := `you have complete access to my family tree. We reference indivuals my a unique string ID.
 You can ask for info on idividuals by telling me the IDs and I'll provide the info in the next prompt.
-We will do this over and over until you have the data you need. When giving me these IDs, ONLY state "NEEDED", then provide as a list, each on its own line with no adornment.
+We will do this over and over until you have the data you need. When giving me these IDs, state "NEEDED", then provide as a list, each on its own line with no adornment.
 `
 
 	// Build the payload
@@ -217,11 +217,13 @@ func main() {
 		fmt.Println(resp)
 		fmt.Println("------------------")
 
-		needed := strings.Split(resp, "\n")
-		if needed[0] != "NEEDED" {
+		index := strings.Index(resp, "NEEDED")
+		
+		if index < 0 {
 			break
 		} else {
-			needed = needed[1:]
+			r := resp[index + 6:]
+			needed := strings.Split(r, "\n")
 			for _, n := range needed {
 				fmt.Printf("adding info for id: %s, %s\n", n, d.Name(n))
 				ids = append(ids, n)
