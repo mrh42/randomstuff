@@ -226,8 +226,11 @@ func main() {
 			r := resp[index + 6:]
 			needed := strings.Split(r, "\n")
 			for _, n := range needed {
-				fmt.Printf("adding info for id: %s, %s\n", n, d.Name(n))
-				ids = append(ids, n)
+				if len(n) > 13 {n = n[0:13]}
+				if len(n) == 13 {
+					fmt.Printf("adding info for id: %s, %s\n", n, d.Name(n))
+					ids = append(ids, n)
+				}
 			}
 		}
 	}
